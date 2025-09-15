@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Live HTML/CSS/JS Previewer</title>
+  <link rel="stylesheet" href="{% static 'preview/style.css' %}">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+  <div class="toolbar">
+    <input type="text" id="snippetTitle" placeholder="Snippet Title">
+    <button id="saveBtn">💾 Save</button>
+    <select id="snippetList">
+      <option value="">-- Load Snippet --</option>
+      {% for snippet in snippets %}
+        <option value="{{ snippet.id }}">{{ snippet.title }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="container">
+    <div class="editor">
+      <h2>Editor</h2>
+      <textarea id="codeArea" placeholder="Write HTML, CSS, JS here..."></textarea>
+    </div>
+    <div class="preview">
+      <h2>Live Preview</h2>
+      <iframe id="outputFrame"></iframe>
+    </div>
+  </div>
+
+  <script>
+    function updatePreview(code) {
+      $("#outputFrame").attr("srcdoc", code);
+    }
+
+    $(document).ready(function() {
+      // Live update as user types
+      $("#codeArea").on("input", function() {
+        let code = $(this).val();
+        $.post("{% url 'live_update' %}", {
+          html_code: code,
+          csrfmiddlewaretoken: '{{ csrf_token }}'
+        }, function(data) {
+          updatePreview(data.html);
+        });
+      });
+
+      // Save snippet
+      $("#saveBtn").click(function() {
+        let title = $("#snippetTitle").val();
+        let code = $("#codeArea").val();
+        $.post("{% url 'save_snippet' %}", {
+          title: title,
+          code: code,
+          csrfmiddlewaretoken: '{{ csrf_token }}'
+        }, function(res) {
+          alert(res.message);
+          if (res.status === "success") {
+            location.reload(); // reload to refresh dropdown
+          }
+        });
+      });
+
+      // Load snippet
+      $("#snippetList").change(function() {
+        let snippetId = $(this).val();
+        if (!snippetId) return;
+        $.get("{% url 'load_snippet' %}", {id: snippetId}, function(res) {
+          if (res.status === "success") {
+            $("#codeArea").val(res.content).trigger("input");
+          } else {
+            alert(res.message);
+          }
+        });
+      });
+    });
+  </script>
+</body>
+</html>
